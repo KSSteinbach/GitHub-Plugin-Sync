@@ -1,0 +1,26 @@
+[general]
+name=GitHub Plugin Sync
+qgisMinimumVersion=3.16
+description=Replace files of an installed QGIS plugin with the contents of a GitHub repository branch for rapid test iteration.
+version=1.0.0
+author=Karl Stephan Steinbach
+email=277199764+KSSteinbach@users.noreply.github.com
+
+about=Developer tool that streamlines testing of different plugin variants by
+    automatically replacing the files of an installed plugin in the user's profile
+    directory with the files of a selectable GitHub repository and branch.
+    Supports public and private repositories (token authentication), optional
+    credential storage in QGIS's authentication database, branch selection, remembered
+    plugin/repo mappings, metadata.txt validation, and safe unload/reload of the target
+    plugin.
+
+tracker=https://github.com/KSSteinbach/GitHub-Plugin-Sync/issues
+repository=https://github.com/KSSteinbach/GitHub-Plugin-Sync
+homepage=https://github.com/KSSteinbach/GitHub-Plugin-Sync
+
+category=Plugins
+icon=icon.png
+experimental=False
+deprecated=False
+tags=development,github,plugin,testing,update,repository
+hasProcessingProvider=no

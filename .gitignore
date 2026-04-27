@@ -1,10 +1,6 @@
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
+*.qm
 .DS_Store
 *.swp
-*.swo
-*~
-.vscode/
-.idea/
