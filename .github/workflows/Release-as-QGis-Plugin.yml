@@ -20,7 +20,7 @@ jobs:
         # Besser für QGIS: Wir packen den Ordner selbst ein,
         # nicht nur seinen Inhalt. So entsteht die Struktur "github_plugin_sync/metadata.txt"
         run: |
-          test -d github_plugin_sync
+          test -d github_plugin_sync || exit 1
           zip -r github_plugin_sync_${{ github.ref_name }}.zip github_plugin_sync/
 
       - name: Upload Release Asset
