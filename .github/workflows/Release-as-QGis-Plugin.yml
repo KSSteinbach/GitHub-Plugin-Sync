@@ -19,14 +19,14 @@ jobs:
       - name: Zip Plugin Folder
         # Besser für QGIS: Wir packen den Ordner selbst ein,
         # nicht nur seinen Inhalt. So entsteht die Struktur "github_plugin_sync/metadata.txt"
-        run: 
+        run: |
           test -d github_plugin_sync
           zip -r github_plugin_sync_${{ github.ref_name }}.zip github_plugin_sync/
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
         with:
-          files: github_plugin_sync.zip
+          files: github_plugin_sync_${{ github.ref_name }}.zip
         env:
           # Sicherstellen, dass das Token mit übergeben wird
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
