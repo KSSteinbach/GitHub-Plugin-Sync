@@ -1,0 +1,30 @@
+name: Create Plugin Release
+
+on:
+  release:
+    types: [published]
+
+# WICHTIG: GitHub Actions braucht explizit die Erlaubnis, 
+# Dateien an ein Release anzuhängen.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Zip Plugin Folder
+        # Besser für QGIS: Wir packen den Ordner selbst ein,
+        # nicht nur seinen Inhalt. So entsteht die Struktur "github_plugin_sync/metadata.txt"
+        run: zip -r github_plugin_sync.zip github_plugin_sync/
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: github_plugin_sync.zip
+        env:
+          # Sicherstellen, dass das Token mit übergeben wird
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
