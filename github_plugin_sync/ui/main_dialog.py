@@ -32,11 +32,12 @@ from qgis.PyQt.QtWidgets import (
 from ..core.credentials import CredentialManager
 from ..core.github_client import GitHubClient, GitHubError, RepoRef
 from ..core.mappings import MappingManager, PluginMapping
-from ..core.metadata_check import compare as compare_metadata
+from ..core.metadata_check import check_structure, compare as compare_metadata
 from ..core.plugin_replacer import PluginReplacer
 from .cleanup_dialog import CleanupDialog
 from .credentials_dialog import CredentialsDialog
 from .help_dialog import HelpDialog
+from .restore_dialog import RestoreDialog
 
 
 def tr(message: str) -> str:
@@ -242,6 +243,12 @@ class MainDialog(QDialog):
             "Delete stored mappings, backups or legacy files."
         ))
         self.cleanup_btn.clicked.connect(self._on_cleanup)
+        self.restore_btn = buttons.addButton(
+            tr("Restore backup …"), QDialogButtonBox.ActionRole)
+        self.restore_btn.setToolTip(tr(
+            "Restore an installed plugin from a previous backup."
+        ))
+        self.restore_btn.clicked.connect(self._on_restore_backup)
         self.check_btn = buttons.addButton(
             tr("Check metadata"), QDialogButtonBox.ActionRole)
         self.check_btn.clicked.connect(self._on_check_metadata)
@@ -333,6 +340,11 @@ class MainDialog(QDialog):
         plugin_id = self._current_plugin_id()
         if plugin_id:
             self._on_plugin_selected(self.plugin_combo.currentIndex())
+
+    def _on_restore_backup(self):
+        dlg = RestoreDialog(self.replacer, self)
+        dlg.exec_()
+        self._populate_plugins()
 
     _VALID_PLUGIN_ID = re.compile(r"^[A-Za-z_][\w.\-]*$")
 
@@ -540,8 +552,26 @@ class MainDialog(QDialog):
             if incoming is not None else None
         self._incoming_metadata_text = incoming_text
 
+        # Plugin structure check: verify __init__.py presence and classFactory.
+        init_path = f"{subdir}/__init__.py" if subdir else "__init__.py"
+        self._set_busy(True, tr("Checking plugin structure…"))
+        try:
+            entries = client.list_directory(repo, branch, subdir or "")
+            file_names = [e.get("name", "") for e in entries]
+            init_bytes = client.get_file(repo, branch, init_path)
+            init_text = init_bytes.decode("utf-8", errors="replace") \
+                if init_bytes is not None else None
+        except GitHubError as exc:
+            self._set_busy(False)
+            QMessageBox.critical(self, tr("GitHub error"), str(exc))
+            return
+        finally:
+            self._set_busy(False)
+
         installed_text = self.replacer.read_metadata(plugin_id)
         report = compare_metadata(installed_text, incoming_text, plugin_id)
+        for issue in check_structure(file_names, init_text):
+            report.issues.append(issue)
 
         self._log(tr("metadata.txt check for '{name}':").format(name=plugin_id))
         if not report.issues:
@@ -703,6 +733,7 @@ class MainDialog(QDialog):
         self.replace_btn.setEnabled(not busy)
         self.check_btn.setEnabled(not busy)
         self.cleanup_btn.setEnabled(not busy)
+        self.restore_btn.setEnabled(not busy)
         self.fetch_branches_btn.setEnabled(not busy)
         self.detect_subdir_btn.setEnabled(not busy)
         if busy and message:

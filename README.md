@@ -17,8 +17,9 @@ profile directory with the contents of a GitHub repository + branch.
 - Validates the incoming `metadata.txt` and warns about likely
   problems (missing fields, mismatching plugin name, higher
   `qgisMinimumVersion`, …) with the option to abort.
-- Stores backups of the replaced plugin-data in
-  `<qgisSettingsDirPath>/github_plugin_sync/<plugin>_<timestamp>/`
+- Stores timestamped backups before every replacement; **restore** any
+  previous version through the built-in restore dialog – the current
+  files are backed up again first, so the operation is fully reversible.
 - Safely **unloads** the target plugin before replacing its files and
   creates a timestamped backup.
 - Automatically **reloads** the plugin after replacement; prompts for a
@@ -55,6 +56,7 @@ github_plugin_sync/
 │   ├── main_dialog.py       # Central dialog
 │   ├── credentials_dialog.py
 │   ├── cleanup_dialog.py
+│   ├── restore_dialog.py    # Restore plugin from backup
 │   └── help_dialog.py
 └── i18n/
     └── github_plugin_sync_en.ts
@@ -63,8 +65,10 @@ github_plugin_sync/
 ## Notes
 
 - Backups are written to
-  `<qgisSettingsDirPath>/github_plugin_sync/<plugin>_<timestamp>/`
-  and can be restored manually.
+  `<qgisSettingsDirPath>/github_plugin_sync/backups/<plugin>_<timestamp>/`.
+  Use **Restore backup…** in the main dialog to restore any snapshot via
+  the UI; the current files are backed up again before the restore, so
+  every step is reversible.
 
 ---
 

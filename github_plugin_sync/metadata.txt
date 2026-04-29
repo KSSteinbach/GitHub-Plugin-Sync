@@ -2,7 +2,7 @@
 name=GitHub Plugin Sync
 qgisMinimumVersion=3.16
 description=Replace files of an installed QGIS plugin with the contents of a GitHub repository branch for rapid test iteration.
-version=1.0.0
+version=1.0.1
 author=Karl Stephan Steinbach
 email=277199764+KSSteinbach@users.noreply.github.com
 

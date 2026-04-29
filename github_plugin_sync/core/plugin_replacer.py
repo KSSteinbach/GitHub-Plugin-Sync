@@ -4,12 +4,26 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import time
 from dataclasses import dataclass
-from typing import List, Optional
+from datetime import datetime
+from typing import Dict, List, Optional
 
 from . import paths
+
+
+@dataclass
+class BackupEntry:
+    """A single timestamped backup of a plugin folder."""
+    plugin_id: str
+    timestamp: datetime
+    path: str
+
+    @property
+    def label(self) -> str:
+        return self.timestamp.strftime("%Y-%m-%d  %H:%M:%S")
 
 
 @dataclass
@@ -20,6 +34,9 @@ class ReplacementResult:
     restart_required: bool
     messages: List[str]
     fresh_install: bool = False
+
+
+_BACKUP_FOLDER_RE = re.compile(r"^(.+)_(\d{8}-\d{6})$")
 
 
 class PluginReplacer:
@@ -61,6 +78,44 @@ class PluginReplacer:
                 return fh.read()
         except OSError:
             return None
+
+    def list_backups(self) -> Dict[str, List[BackupEntry]]:
+        """Return all available backups grouped by plugin ID, newest first."""
+        backups_root = self.backup_root or paths.backups_dir()
+        result: Dict[str, List[BackupEntry]] = {}
+        if not os.path.isdir(backups_root):
+            return result
+        for name in os.listdir(backups_root):
+            m = _BACKUP_FOLDER_RE.match(name)
+            if not m:
+                continue
+            plugin_id, stamp = m.group(1), m.group(2)
+            try:
+                ts = datetime.strptime(stamp, "%Y%m%d-%H%M%S")
+            except ValueError:
+                continue
+            full_path = os.path.join(backups_root, name)
+            if not os.path.isdir(full_path):
+                continue
+            result.setdefault(plugin_id, []).append(
+                BackupEntry(plugin_id=plugin_id, timestamp=ts, path=full_path)
+            )
+        for entries in result.values():
+            entries.sort(key=lambda e: e.timestamp, reverse=True)
+        return result
+
+    def restore_backup(self, entry: BackupEntry,
+                       try_reload: bool = True) -> "ReplacementResult":
+        """Restore *entry* as the active plugin version.
+
+        The current plugin folder is backed up first, so the restore itself
+        is reversible. Delegates to :meth:`replace` for the actual swap.
+        """
+        return self.replace(
+            plugin_id=entry.plugin_id,
+            source_dir=entry.path,
+            try_reload=try_reload,
+        )
 
     # ------------------------------------------------------------------
     # Unload / reload via qgis.utils.plugins

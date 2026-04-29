@@ -75,6 +75,11 @@ class GitHubClient:
     # Core request helper
     # ------------------------------------------------------------------
     def _request(self, url: str, accept: str = "application/vnd.github+json"):
+        # Only allow HTTPS URLs. Guards against file:// or other schemes
+        # sneaking in via server-supplied URLs (e.g. paginated Link headers).
+        scheme = urllib.parse.urlparse(url).scheme.lower()
+        if scheme != "https":
+            raise GitHubError(f"Refusing non-HTTPS URL: {url!r}")
         headers = {
             "Accept": accept,
             "User-Agent": USER_AGENT,
@@ -84,7 +89,7 @@ class GitHubClient:
             headers["Authorization"] = f"Bearer {self.token}"
         req = urllib.request.Request(url, headers=headers)
         try:
-            return urllib.request.urlopen(
+            return urllib.request.urlopen(  # noqa: S310 - scheme validated above
                 req, timeout=self.timeout, context=self._ssl_ctx
             )
         except urllib.error.HTTPError as exc:
@@ -265,10 +270,20 @@ def _extract_error_message(body: str) -> str:
 
 
 def _safe_tar_members(tar: tarfile.TarFile, destination: str) -> Iterable[tarfile.TarInfo]:
-    """Yield members, raising on path traversal attempts."""
+    """Yield members, raising on path traversal or unsafe member types.
+
+    Only regular files and directories are returned. Symlinks, hardlinks,
+    devices and other special entries are rejected so that a malicious
+    archive cannot escape ``destination`` via link targets.
+    """
     import os
     dest = os.path.realpath(destination)
     for member in tar.getmembers():
+        if not (member.isfile() or member.isdir()):
+            raise GitHubError(
+                f"Unsupported member type in archive: {member.name!r} "
+                f"(type={member.type!r})"
+            )
         member_path = os.path.realpath(os.path.join(destination, member.name))
         if not member_path.startswith(dest + os.sep) and member_path != dest:
             raise GitHubError(f"Unsafe path in archive: {member.name!r}")

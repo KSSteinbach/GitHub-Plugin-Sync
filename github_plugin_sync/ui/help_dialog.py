@@ -110,6 +110,12 @@ and is hidden again when the worker thread finishes.</p>
   <li><b>Cleanup plugin data&hellip;</b> &ndash; opens the <i>Clean up
       plugin data</i> dialog where you can review and delete data
       stored by this plugin in your QGIS profile.</li>
+  <li><b>Restore backup &hellip;</b> &ndash; opens the <i>Restore plugin
+      from backup</i> dialog. All plugins that have at least one backup
+      are listed; selecting a plugin shows its snapshots in chronological
+      order (newest first). The current plugin files are backed up
+      automatically before the restore so the operation is fully
+      reversible.</li>
   <li><b>Check metadata</b> &ndash; downloads the
       <code>metadata.txt</code> of the current selection and compares
       it with the installed copy (when present). The result is written
@@ -152,6 +158,29 @@ unavailable, a warning is shown and saving is disabled.</p>
   <li><b>Close</b> &ndash; closes the dialog.</li>
 </ul>
 
+<h2>The &ldquo;Restore plugin from backup&rdquo; dialog</h2>
+<p>This dialog gives you a complete overview of every backup that is
+available and lets you restore one with a single confirmation step.</p>
+<ul>
+  <li><b>Plugin with backups</b> &ndash; a combo box listing every plugin
+      for which at least one backup exists, together with the number of
+      snapshots. If no backups are present at all, the combo is disabled
+      and the restore button stays inactive.</li>
+  <li><b>Available backups (newest first)</b> &ndash; once a plugin is
+      selected, every backup appears as a timestamped entry
+      (<code>YYYY-MM-DD&nbsp;&nbsp;HH:MM:SS</code>), sorted from the most
+      recent to the oldest. The full path of the highlighted entry is
+      shown below the list for reference.</li>
+  <li><b>&#x21A9; Restore selected backup</b> &ndash; after a
+      confirmation prompt, the current plugin files are backed up to a
+      new timestamped snapshot and the selected backup is copied into
+      the plugin folder. The plugin is unloaded before and reloaded after
+      the swap wherever QGIS supports it; if a clean reload is not
+      possible, a restart prompt appears.</li>
+  <li><b>Close</b> &ndash; closes the dialog without making any
+      changes.</li>
+</ul>
+
 <h2>The &ldquo;Clean up plugin data&rdquo; dialog</h2>
 <p>The dialog lets you review and remove data that this plugin has
 stored on disk.</p>
@@ -170,10 +199,12 @@ stored on disk.</p>
 </ul>
 
 <h2>Backups, mappings and safety</h2>
-<p>Every replacement produces a backup at
-<code>&lt;qgisSettingsDirPath&gt;/github_plugin_sync/&lt;plugin&gt;_&lt;timestamp&gt;/</code>.
-The path is written to the status log, so a previous version can
-always be restored manually. Stored mappings live in the same folder
+<p>Every replacement produces a timestamped backup at
+<code>&lt;qgisSettingsDirPath&gt;/github_plugin_sync/backups/&lt;plugin&gt;_&lt;timestamp&gt;/</code>.
+The path is written to the status log. Use <b>Restore backup&nbsp;&hellip;</b>
+in the main dialog to restore any snapshot through the UI; because the
+current files are backed up before each restore, every step in the
+sequence is reversible. Stored mappings live in the same parent folder
 and can be removed at any time through the cleanup dialog. The plugin
 never modifies the GitHub repository: it only fetches branches, file
 contents and tarballs.</p>
@@ -224,6 +255,7 @@ modules are the only place that touches the outside world.</p>
 |     |   |   |                                                               |
 |     |   |   +--&gt; CredentialsDialog          (modal)                          |
 |     |   +------&gt; CleanupDialog              (modal)                          |
+|     |   +------&gt; RestoreDialog              (modal)                          |
 |     |                                                                       |
 |     +-- Worker QThreads:  _BranchesWorker  _SubdirWorker  _DownloadWorker   |
 +-----+--------+---------+----------+--------+--------+--------+--------------+
@@ -345,6 +377,19 @@ MainDialog._on_replace()
     "Delete selected items now"   -&gt; cleanup.delete_targets(keys)
     "Save auto-cleanup settings"  -&gt; cleanup.save_auto_cleanup_keys(keys)
                                      writes storage_dir/auto_cleanup.json
+
+"Restore backup &hellip;" -&gt; RestoreDialog
+    PluginReplacer.list_backups()
+        scans storage_dir/backups/ for &lt;plugin&gt;_&lt;YYYYMMDD-HHMMSS&gt;/
+        groups by plugin_id, sorts newest-first
+        -&gt; plugin combo (with count), backup list (timestamps + paths)
+    "&uarr; Restore selected backup" after confirmation:
+    PluginReplacer.restore_backup(entry)
+        delegates to replace(plugin_id, source_dir=backup_path)
+          unload_plugin()        qgis.utils.unloadPlugin(plugin_id)
+          _backup()              current files -&gt; new timestamped snapshot
+          _copy_new_files()      backup_path -&gt; plugin_dir
+          reload_plugin()        qgis.utils.loadPlugin / startPlugin
 
 Plugin start (every QGIS launch):
     GitHubPluginSyncPlugin.__init__

@@ -13,10 +13,14 @@ from __future__ import annotations
 import configparser
 import io
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 
 REQUIRED_FIELDS = ("name", "version", "qgisMinimumVersion", "description")
+
+# Files that every QGIS plugin folder must contain so that QGIS can discover
+# and load it.
+REQUIRED_FILES = ("__init__.py",)
 
 
 @dataclass
@@ -133,6 +137,40 @@ def compare(installed_text: Optional[str],
         ))
 
     return report
+
+
+def check_structure(
+    file_names: Iterable[str],
+    init_text: Optional[str] = None,
+) -> List[MetadataIssue]:
+    """Verify that the minimum QGIS plugin file structure is present.
+
+    *file_names* should be the names of files/directories directly inside the
+    plugin folder (e.g. from a GitHub API directory listing).  *init_text* is
+    the decoded content of ``__init__.py``; when supplied the function also
+    checks for the ``classFactory`` entry-point that QGIS requires to
+    initialise a plugin.
+    """
+    issues: List[MetadataIssue] = []
+    names = set(file_names)
+
+    for required in REQUIRED_FILES:
+        if required not in names:
+            issues.append(MetadataIssue(
+                "error",
+                f"'{required}' is missing from the repository folder. "
+                "QGIS cannot load a plugin without this file.",
+            ))
+
+    if "__init__.py" in names and init_text is not None:
+        if "classFactory" not in init_text:
+            issues.append(MetadataIssue(
+                "warning",
+                "'__init__.py' does not appear to define 'classFactory'. "
+                "QGIS requires this entry-point to initialise a plugin.",
+            ))
+
+    return issues
 
 
 def _version_key(value: str):
