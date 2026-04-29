@@ -5,16 +5,22 @@ env:
 
 on:
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch, der in das ZIP exportiert werden soll (Default: main)'
+        required: false
+        type: string
+        default: 'main'
 
 jobs:
   zip:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout main branch
+      - name: Checkout selected branch
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ inputs.branch || 'main' }}
 
       - name: Detect plugin directory (contains metadata.txt)
         id: detect
